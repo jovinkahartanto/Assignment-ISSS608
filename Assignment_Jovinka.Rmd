@@ -1,0 +1,310 @@
+---
+title: "Vast Mini Challenge 2"
+author: "Jovinka Hartanto"
+date: "7/4/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+
+#SEE PACKAGE MAPVIEW
+#SLIDE 8
+#opts_chunk : echo, eval TRUE, message, warning FALSE. fig.retina = 3
+
+# P = npts(gps_path, byb_feature = TRUE)
+# gps_path2 <- cbind (gps_path,p)
+
+#maybe can use community detection to find the relationship
+
+```{r install packages and load library, include=FALSE}
+packages = c('raster', 'sf', 'st',
+             'tmap','mapview', 'clock', 
+             'tidyverse','plotly','lubridate')
+for (p in packages){
+  if(!require(p, character.only = T)){
+    install.packages(p)
+  }
+  library(p,character.only = T)
+}
+
+```
+
+```{r import cc and loyalty}
+loyalty_data <- read_csv("MC2/loyalty_data.csv")
+
+loyalty_data$timestamp <- date_time_parse(loyalty_data$timestamp,
+                                zone = "",
+                                format = "%m/%d/%Y")
+
+cc_data <- read_csv("MC2/cc_data.csv")
+cc_data$timestamp_date <- date_time_parse(cc_data$timestamp,
+                                zone = "",
+                                format = "%m/%d/%Y")
+cc_data$timestamp <- date_time_parse(cc_data$timestamp,
+                                zone = "",
+                                format = "%m/%d/%Y %H:%M")
+
+
+
+cc_data
+
+
+```
+
+```{r input gps data}
+gps <- read_csv("MC2/gps.csv")
+gps$Date <-date_time_parse(gps$Timestamp,
+                                zone = "",
+                                format = "%m/%d/%Y")
+gps$Timestamp <-date_time_parse(gps$Timestamp,
+                                zone = "",
+                                format = "%m/%d/%Y %H:%M:%S")
+gps_sort <- gps[order(gps$Timestamp, gps$id),]
+
+
+```
+
+```{r gps time duration}
+
+
+stop_fin = data.frame()
+
+for (id_1 in unique(gps_sort$id))
+{
+  make_stop = data.frame()
+  gps_id <- gps_sort %>%
+  filter(id==id_1)
+  
+  for(i in 1:nrow(gps_id))
+  {
+    if(i < nrow(gps_id))
+    {
+      start <- gps_id$Timestamp[i]
+      end <- gps_id$Timestamp[i+1]
+    } else
+    {
+      start <- gps_id$Timestamp[i]
+      end <- gps_id$Timestamp[i]
+    }
+    elapsed.time <- start%--%end
+    time_duration <- as.duration(elapsed.time)
+    
+    if(time_duration > 120)
+    {
+      make_stop = rbind(make_stop,cbind(gps_id[i,],time_duration,i),cbind(gps_id[i+1,],time_duration,i))
+    }
+    
+  }
+  
+  stop_fin = rbind(stop_fin, make_stop)
+}
+
+
+```
+
+```{r abila + stop_fin map}
+Abila_st <- st_read(dsn = "MC2/Geospatial",
+                    layer = "Abila")
+
+P <- npts(Abila_st, by_feature = TRUE)
+abila_st_2 <- cbind(Abila_st,P) %>% filter(P > 1)
+
+gps_sf <- st_as_sf(stop_fin,
+                   coords = c("long","lat"),
+                   crs=4326)
+
+gps_path <- gps_sf %>%
+  group_by(id, i) %>%
+  summarize(m_Timestamp = mean(Timestamp),
+            do_union = FALSE ) %>%
+  st_cast("LINESTRING")
+
+gps_path_selected <- gps_path %>%
+  filter(id==5)
+
+
+bgmap <- raster("MC2/Geospatial/MC2-tourist.TIF")
+
+tmap_mode("view")
+tm_shape(bgmap) +
+  tm_rgb(bgmap, r = 1, g = 2, b = 3,
+         alpha = NA,
+         saturation = 1,
+         interpolate = TRUE,
+         max.value = 255) +
+  tm_shape(abila_st_2) +
+  tm_lines(col = "red", scale = 1)+
+  tm_shape(gps_path_selected[c(2,8,13,18,20),]) +
+  tm_lines(col = "black", scale =7, interactive = TRUE) +
+  tm_text("i", size = 4, remove.overlap = TRUE, overwrite.lines = TRUE, just = "top")
+  
+
+
+```
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+``` {r test cc&stop_fin}
+
+cc_selected <- cc_data %>% filter(location == "Abila Zacharo")
+
+cc_selected$timestamp <- as_date_time(cc_selected$timestamp)
+
+sf_selected = stop_fin %>% filter(id == 35, i == 682)
+
+
+plot_id = data.frame()
+
+for(id1 in unique(stop_fin$id))
+{
+  potential_id = data.frame()
+  sf_selected_1 = stop_fin %>% filter(id == id1)
+  for (i1 in unique(sf_selected_1$i))
+  {
+    sf_selected_2 = stop_fin %>% filter(id == id1, i == i1)
+     
+    if(cc_selected$timestamp[72] >= sf_selected_2[1,1] & cc_selected$timestamp[72] <= sf_selected_2[2,1])
+    {
+       potential_id = rbind(potential_id, sf_selected_2[1:2,])
+    } 
+  }
+  
+  plot_id = rbind(plot_id,potential_id)
+}
+
+gps_sf <- st_as_sf(plot_id,
+                   coords = c("long","lat"),
+                   crs=4326)
+
+gps_path <- gps_sf %>%
+  group_by(id, i) %>%
+  summarize(m_Timestamp = mean(Timestamp),
+            do_union = FALSE ) %>%
+  st_cast("LINESTRING")
+
+gps_path_selected <- gps_path
+
+bgmap <- raster("MC2/Geospatial/MC2-tourist.TIF")
+
+tmap_mode("view")
+tm_shape(bgmap) +
+  tm_rgb(bgmap, r = 1, g = 2, b = 3,
+         alpha = NA,
+         saturation = 1,
+         interpolate = TRUE,
+         max.value = 255) +
+  tm_shape(abila_st_2) +
+  tm_lines(col = "red", scale = 1)+
+  tm_shape(gps_path_selected) +
+  tm_lines(col = "black", scale =7, interactive = TRUE) +
+  tm_text("id", size = 4, remove.overlap = TRUE, overwrite.lines = TRUE, just = "top")
+
+
+```
+
+```{r}
+
+
+```
+
+
+
+```{r}
+
+
+```
+
+```{r import car assignment}
+car_assignments <- read_csv("MC2/car-assignments.csv")
+car_assignments
+
+```
+
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+
+
+
+```
+
+
+```{r}
+# gps_path_daily <- gps_sf %>%
+#   group_by(id,Timestamp_Date) %>%
+#   summarize(m = mean(Timestamp_Date),
+#             do_union = FALSE ) %>%
+#   st_cast("LINESTRING")
+
+```
+
+```{r}
+# gps_path_daily_selected <- gps_path_daily %>%
+#   filter(id==1 & Timestamp_Date == "2014-01-06")
+# 
+# bgmap <- raster("MC2/Geospatial/MC2-tourist.TIF")
+# 
+# tmap_mode("view")
+# tm_shape(bgmap) +
+#   tm_rgb(bgmap, r = 1, g = 2, b = 3,
+#          alpha = NA,
+#          saturation = 1,
+#          interpolate = TRUE,
+#          max.value = 255) +
+#   tm_shape(gps_path_daily_selected) +
+#   tm_lines()
+
+
+```
+
+```{r}
+# gps1 <- gps_sf %>% 
+#         filter(id == 1 & Timestamp > "2014-01-06 07:57:01" & Timestamp < "2014-01-06 07:57:48")
+# 
+# gps_path1 <- gps1 %>%
+#   group_by(id) %>%
+#   summarize(m = mean(Timestamp),
+#             do_union = FALSE ) %>%
+#   st_cast("LINESTRING")
+# 
+# 
+# tmap_mode("view")
+# tm_shape(bgmap) +
+#   tm_rgb(bgmap, r = 1, g = 2, b = 3,
+#          alpha = NA,
+#          saturation = 1,
+#          interpolate = TRUE,
+#          max.value = 255) +
+#   tm_shape(gps_path1) +
+#   tm_lines()
+
+```
+
+```{r}
+
+```
