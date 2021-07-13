@@ -108,7 +108,7 @@ for (id_1 in unique(gps_sort$id))
 
 ```
 
-```{r abila + stop_fin map}
+```{r abila map and plotstop_fin map}
 Abila_st <- st_read(dsn = "MC2/Geospatial",
                     layer = "Abila")
 
