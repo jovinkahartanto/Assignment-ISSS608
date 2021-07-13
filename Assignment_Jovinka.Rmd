@@ -39,7 +39,7 @@ for (p in packages){
 
 ```
 
-```{r import cc and loyalty}
+```{r import cc data and loyalty card data}
 loyalty_data <- read_csv("MC2/loyalty_data.csv")
 
 loyalty_data$timestamp <- date_time_parse(loyalty_data$timestamp,
@@ -53,10 +53,6 @@ cc_data$timestamp_date <- date_time_parse(cc_data$timestamp,
 cc_data$timestamp <- date_time_parse(cc_data$timestamp,
                                 zone = "",
                                 format = "%m/%d/%Y %H:%M")
-
-
-
-cc_data
 
 
 ```
@@ -74,7 +70,7 @@ gps_sort <- gps[order(gps$Timestamp, gps$id),]
 
 ```
 
-```{r gps time duration}
+```{r find gps time duration}
 
 
 stop_fin = data.frame()
